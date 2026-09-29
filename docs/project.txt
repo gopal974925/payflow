@@ -1,0 +1,518 @@
+payflow/
+├── apps/
+│   ├── api-gateway/
+│   │   ├── src/
+│   │   │   ├── index.ts
+│   │   │   ├── app.ts
+│   │   │   ├── config/env.ts
+│   │   │   ├── middleware/
+│   │   │   │   ├── verify-jwt.ts
+│   │   │   │   ├── rate-limit.ts
+│   │   │   │   └── correlation-id.ts
+│   │   │   └── routes/proxy.routes.ts
+│   │   ├── tests/
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   │
+│   ├── auth-service/
+│   │   ├── src/
+│   │   │   ├── index.ts
+│   │   │   ├── app.ts
+│   │   │   ├── config/
+│   │   │   ├── modules/
+│   │   │   │   ├── auth/
+│   │   │   │   │   ├── auth.routes.ts
+│   │   │   │   │   ├── auth.controller.ts
+│   │   │   │   │   ├── auth.service.ts
+│   │   │   │   │   ├── auth.repository.ts
+│   │   │   │   │   └── auth.schema.ts
+│   │   │   │   └── pin/
+│   │   │   ├── events/
+│   │   │   │   └── publishers/user-registered.ts
+│   │   │   ├── db/
+│   │   │   │   ├── pool.ts
+│   │   │   │   └── migrations/
+│   │   │   └── workers/outbox-relay.ts
+│   │   ├── tests/
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   │
+│   ├── wallet-ledger-service/          # the core service
+│   │   ├── src/
+│   │   │   ├── index.ts
+│   │   │   ├── app.ts
+│   │   │   ├── modules/
+│   │   │   │   ├── wallet/
+│   │   │   │   ├── ledger/
+│   │   │   │   │   ├── ledger.service.ts
+│   │   │   │   │   └── ledger.repository.ts
+│   │   │   │   ├── transfer/
+│   │   │   │   │   ├── transfer.routes.ts
+│   │   │   │   │   ├── transfer.controller.ts
+│   │   │   │   │   ├── transfer.service.ts      # locking + atomic logic
+│   │   │   │   │   └── transfer.repository.ts
+│   │   │   │   ├── idempotency/
+│   │   │   │   └── internal/                    # debit, credit, reverse APIs
+│   │   │   ├── events/
+│   │   │   │   ├── consumers/user-registered.consumer.ts
+│   │   │   │   └── publishers/
+│   │   │   ├── db/
+│   │   │   │   ├── pool.ts
+│   │   │   │   └── migrations/
+│   │   │   └── workers/outbox-relay.ts
+│   │   ├── tests/
+│   │   │   ├── integration/
+│   │   │   └── concurrency/                     # parallel transfer tests
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   │
+│   ├── payment-orchestrator/           # includes mock bank module
+│   │   ├── src/
+│   │   │   ├── index.ts
+│   │   │   ├── app.ts
+│   │   │   ├── modules/
+│   │   │   │   ├── topup/
+│   │   │   │   ├── merchant-payment/
+│   │   │   │   ├── refund/
+│   │   │   │   ├── saga/
+│   │   │   │   │   ├── saga.engine.ts
+│   │   │   │   │   ├── saga.repository.ts
+│   │   │   │   │   └── steps/
+│   │   │   │   ├── state-machine/
+│   │   │   │   │   └── payment.state-machine.ts
+│   │   │   │   ├── callbacks/                   # signed webhook receiver
+│   │   │   │   └── mock-bank/                   # simulated bank/UPI
+│   │   │   ├── clients/
+│   │   │   │   └── wallet-ledger.client.ts
+│   │   │   ├── events/
+│   │   │   ├── db/migrations/
+│   │   │   └── workers/
+│   │   ├── tests/
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   │
+│   ├── merchant-service/
+│   │   ├── src/
+│   │   │   ├── modules/
+│   │   │   │   ├── merchant/
+│   │   │   │   ├── api-keys/
+│   │   │   │   ├── payment-requests/
+│   │   │   │   └── settlements/
+│   │   │   ├── events/
+│   │   │   ├── db/migrations/
+│   │   │   └── index.ts
+│   │   ├── tests/
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   │
+│   └── notification-webhook-service/
+│       ├── src/
+│       │   ├── modules/
+│       │   │   ├── notifications/               # mock sms/email
+│       │   │   └── webhooks/                    # merchant delivery + retries
+│       │   ├── events/consumers/
+│       │   ├── workers/
+│       │   │   ├── notification.worker.ts
+│       │   │   └── webhook.worker.ts
+│       │   ├── db/migrations/
+│       │   └── index.ts
+│       ├── tests/
+│       ├── Dockerfile
+│       ├── package.json
+│       └── tsconfig.json
+│
+├── packages/
+│   ├── contracts/                      # shared schemas (no business logic)
+│   │   ├── src/
+│   │   │   ├── events/
+│   │   │   │   ├── user-registered.v1.ts
+│   │   │   │   ├── transfer-completed.v1.ts
+│   │   │   │   └── payment-succeeded.v1.ts
+│   │   │   ├── dto/
+│   │   │   └── index.ts
+│   │   └── package.json
+│   │
+│   ├── common/                         # shared utilities
+│   │   ├── src/
+│   │   │   ├── logger.ts
+│   │   │   ├── errors.ts
+│   │   │   ├── hmac.ts
+│   │   │   ├── idempotency.ts
+│   │   │   ├── outbox.ts
+│   │   │   ├── inbox.ts
+│   │   │   ├── rabbitmq.ts
+│   │   │   ├── http-client.ts          # timeouts, retries, circuit breaker
+│   │   │   └── index.ts
+│   │   └── package.json
+│   │
+│   ├── tsconfig/
+│   │   ├── base.json
+│   │   └── node.json
+│   └── eslint-config/
+│       └── index.js
+│
+├── infra/
+│   ├── docker-compose.yml              # all services + one Postgres per service
+│   ├── docker-compose.override.yml     # dev-only settings
+│   ├── prometheus/prometheus.yml
+│   ├── grafana/dashboards/
+│   └── scripts/
+│       ├── seed.sh
+│       └── chaos/                      # stop-service failure test scripts
+│
+├── load-tests/
+│   └── k6/
+│       ├── transfer.js
+│       └── statement.js
+│
+├── docs/
+│   ├── architecture.md
+│   ├── decisions.md                    # why you chose each approach
+│   ├── event-catalog.md
+│   ├── api/                            # OpenAPI files per service
+│   └── diagrams/
+│
+├── .github/
+│   ├── workflows/
+│   │   ├── ci.yml                      # lint + test with path filters
+│   │   └── docker-build.yml
+│   └── pull_request_template.md
+│
+├── .env.example
+├── .gitignore
+├── .editorconfig
+├── .prettierrc
+├── package.json                        # root scripts
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+├── LICENSE
+└── README.md
+
+
+
+
+
+
+
+
+# PayFlow Microservices Architecture
+*The wallet/payments backend split into independent services. Node.js, TypeScript, PostgreSQL, Redis, RabbitMQ (or Kafka), Docker.*
+
+> **Simulation only.** Mock bank gateway, no real money or card data.
+
+---
+
+## 1. The Most Important Design Decision
+
+Do **not** split wallets and the ledger into separate services. A P2P transfer must debit one wallet and credit another **atomically**. If those live in different services with different databases, you lose simple ACID transactions and need sagas for the core money path, which is risky and hard to reason about.
+
+**Rule used here:** split by business capability, but keep everything that needs a single transaction (wallets + ledger + transfers) in one service. Use sagas only for flows that genuinely cross boundaries (top-up via bank, merchant payments).
+
+This is also a strong interview answer: *"I didn't split blindly. I kept the consistency boundary intact."*
+
+---
+
+## 2. Service Map
+
+```mermaid
+flowchart TD
+    C[Mobile/Web Client] --> GW[API Gateway]
+    M[Merchant Server] --> GW
+    GW --> AUTH[Auth & User Service]
+    GW --> CORE[Wallet & Ledger Service]
+    GW --> PAY[Payment Orchestrator Service]
+    GW --> MER[Merchant Service]
+    PAY -->|gRPC/REST| CORE
+    PAY -->|REST| BANK[Bank Gateway Service<br/>mock UPI/bank]
+    BANK -- signed callback --> PAY
+    MER -->|REST| PAY
+    CORE --> BUS{{Event Bus<br/>RabbitMQ / Kafka}}
+    PAY --> BUS
+    BUS --> NOTIF[Notification Service]
+    BUS --> HOOK[Webhook Delivery Service]
+    BUS --> FRAUD[Fraud & Risk Service]
+    BUS --> REPORT[Reconciliation & Reporting Service]
+    AUTH --- DB1[(auth_db)]
+    CORE --- DB2[(ledger_db)]
+    PAY --- DB3[(payments_db)]
+    MER --- DB4[(merchant_db)]
+    BANK --- DB5[(bank_db)]
+    NOTIF --- DB6[(notif_db)]
+    HOOK --- DB7[(webhook_db)]
+    FRAUD --- DB8[(risk_db)]
+    REPORT --- DB9[(reporting_db)]
+    GW --- R[(Redis)]
+```
+
+**Database per service.** No service reads another service's tables. Data is shared only through APIs and events.
+
+---
+
+## 3. Services in Detail
+
+### 3.1 API Gateway
+- Single entry point for clients and merchants
+- JWT verification (public key from Auth), rate limiting (Redis), request ID injection, routing, CORS
+- Aggregates nothing complex. It routes and protects.
+- **Tech:** Express/Fastify with `http-proxy-middleware`, or Kong/Nginx if you prefer
+
+### 3.2 Auth & User Service
+- Owns: users, credentials, PIN, sessions/refresh tokens, KYC-lite status, devices
+- Endpoints: register, login, refresh, logout, set/verify PIN, profile
+- Issues JWTs signed with a private key. Other services verify with the public key.
+- Emits: `user.registered`, `user.pin_locked`
+- **DB tables:** `users`, `refresh_tokens`, `devices`, `kyc_records`
+
+### 3.3 Wallet & Ledger Service (the core)
+- Owns: wallets, ledger entries, P2P transfers, balances, wallet limits, freezes
+- Guarantees: atomic double-entry, row locks in ascending ID order, idempotency, `CHECK (balance >= 0)`
+- Internal API (called by Payment Orchestrator): `debit`, `credit`, `transfer`, `reverse`, each idempotent
+- Public via gateway: balance, statement, P2P transfer
+- Uses the **transactional outbox** to emit events reliably
+- Emits: `wallet.created`, `transfer.completed`, `transfer.failed`, `ledger.entry_posted`
+- **DB tables:** `wallets`, `ledger_entries`, `transfers`, `idempotency_keys`, `outbox`
+
+### 3.4 Payment Orchestrator Service
+- Owns: top-ups, merchant payments, refunds, and the **saga state** for multi-step flows
+- Coordinates Bank Gateway, Wallet & Ledger, and Merchant services
+- Runs the payment state machine: `INITIATED -> PENDING -> SUCCESS / FAILED -> REVERSED`
+- Handles compensation (e.g. bank succeeded but wallet credit failed -> retry, then reverse)
+- Emits: `payment.initiated`, `payment.succeeded`, `payment.failed`, `refund.completed`
+- **DB tables:** `payments`, `saga_instances`, `saga_steps`, `outbox`, `inbox`
+
+### 3.5 Bank Gateway Service (mock)
+- Simulates a bank/UPI switch: create order, random delay, success/fail, signed callback
+- Sends HMAC-signed callbacks with retries and occasional duplicates or out-of-order events (to test your handling)
+- Has its own database and API, as an external system would
+- **DB tables:** `bank_orders`, `bank_callbacks`
+
+### 3.6 Merchant Service
+- Owns: merchant onboarding, API keys (hashed), webhook URLs and secrets, settlements
+- Creates payment requests and QR payloads, then delegates the payment to the Orchestrator
+- Emits: `merchant.created`, `settlement.generated`
+- **DB tables:** `merchants`, `api_keys`, `payment_requests`, `settlements`
+
+### 3.7 Notification Service
+- Consumes `transfer.completed`, `payment.succeeded`, `user.pin_locked`, etc.
+- Sends mock SMS/email/push (log to console or Mailhog)
+- Deduplicates using an `inbox` table (event ID unique)
+- **DB tables:** `notifications`, `templates`, `inbox`
+
+### 3.8 Webhook Delivery Service
+- Consumes `payment.*` events and delivers signed webhooks to merchant URLs
+- Exponential backoff (1m, 5m, 30m, 2h), dead-letter queue, manual replay endpoint
+- **DB tables:** `webhook_endpoints_cache`, `deliveries`, `attempts`
+
+### 3.9 Fraud & Risk Service
+- Consumes transfer and payment events, applies rules (velocity, amount spike, new device, ping-pong transfers)
+- Produces risk flags, and can call Wallet & Ledger to freeze a wallet
+- Start with pre-computed flags after the event. A real-time pre-check (synchronous, low latency) is an advanced upgrade.
+- **DB tables:** `risk_rules`, `risk_flags`, `user_velocity_counters`
+
+### 3.10 Reconciliation & Reporting Service
+- Nightly job: verifies ledger sums, wallet balances, bank callbacks vs payments, and settlement totals
+- Builds read-optimized statements and analytics from events (CQRS-style read model)
+- **DB tables:** `recon_runs`, `mismatches`, `daily_summaries`
+
+---
+
+## 4. Communication Patterns
+
+| Use | Style | Why |
+|---|---|---|
+| Client to gateway | REST/JSON | Standard |
+| Orchestrator to Wallet/Ledger | gRPC or REST with idempotency keys | Needs an immediate answer |
+| Orchestrator to Bank Gateway | REST | Simulates an external system |
+| Everything else | Async events on the bus | Loose coupling, retries |
+
+### Event catalog (versioned, with `event_id`, `type`, `version`, `occurred_at`, `correlation_id`, `payload`)
+
+| Event | Producer | Consumers |
+|---|---|---|
+| `user.registered` | Auth | Wallet & Ledger (creates wallet), Notification |
+| `wallet.created` | Wallet & Ledger | Reporting |
+| `transfer.completed` | Wallet & Ledger | Notification, Fraud, Reporting |
+| `payment.succeeded` / `payment.failed` | Orchestrator | Webhook, Notification, Merchant, Reporting |
+| `refund.completed` | Orchestrator | Webhook, Notification |
+| `risk.flag_raised` | Fraud | Wallet & Ledger (freeze), Notification |
+
+### Reliability for messaging
+- **Outbox** in every producer: write the event in the same DB transaction as the state change, then a relay publishes it
+- **Inbox** in every consumer: store processed `event_id` and ignore duplicates (at-least-once delivery becomes effectively-once)
+- Dead-letter queues and a replay tool
+- Never depend on event order across aggregates. Use versions or timestamps to reject stale updates.
+
+---
+
+## 5. Key Flows
+
+### 5.1 P2P transfer (single service, single transaction)
+Client -> Gateway -> Wallet & Ledger. Lock both wallets in order, write two ledger entries, write an outbox event, commit. Then `transfer.completed` fans out to Notification, Fraud and Reporting. **No saga needed**, which is the payoff of the boundary choice.
+
+### 5.2 Top-up via bank (saga, orchestrated)
+1. Orchestrator creates a `payment` (`INITIATED`) and calls the Bank Gateway. State becomes `PENDING`.
+2. Bank Gateway sends a signed callback to the Orchestrator. It verifies the signature and timestamp and dedupes by provider event ID.
+3. On success, the Orchestrator calls Wallet & Ledger `credit` with the payment ID as the idempotency key. The system pool wallet is debited in the same call.
+4. State becomes `SUCCESS` and `payment.succeeded` is published.
+5. **If the credit call fails or times out:** retry with the same idempotency key. After N failures, mark `NEEDS_REVIEW` and raise an alert (money was taken by the bank but not credited, so never silently fail).
+
+### 5.3 Merchant payment (saga)
+1. Merchant Service creates a payment request. Customer approves with PIN (verified via Auth).
+2. Orchestrator calls Wallet & Ledger `transfer` (customer to merchant wallet) with an idempotency key.
+3. On success, `payment.succeeded` triggers the Webhook Delivery Service, which notifies the merchant.
+4. **Refund:** Orchestrator calls `reverse` on Wallet & Ledger, which posts new reversing entries linked to the original.
+
+### 5.4 Saga rules
+- Use **orchestration** (Orchestrator holds the state), not choreography, for money flows. It is easier to debug and audit.
+- Every step is idempotent. Every step has a defined compensation or a manual-review state.
+- Persist saga state after every step so a crash resumes correctly.
+
+---
+
+## 6. Cross-Cutting Concerns
+
+| Concern | Approach |
+|---|---|
+| **Auth between services** | Gateway verifies the user JWT. Internal calls use service tokens (signed JWT or mTLS) |
+| **Tracing** | `X-Correlation-ID` created at the gateway and propagated in HTTP headers and event metadata. Add OpenTelemetry + Jaeger for a bonus |
+| **Logging** | Structured JSON (pino) with correlation ID, shipped to console or Loki |
+| **Metrics** | Prometheus + Grafana: request rate, p95 latency, queue depth, saga failures |
+| **Resilience** | Timeouts on every call, retries with jitter, circuit breaker (opossum), bulkheads |
+| **Config/secrets** | `.env` per service, shared via Docker Compose. Never commit secrets |
+| **Contracts** | Shared `packages/contracts` with Zod schemas and event types, versioned |
+| **API docs** | OpenAPI per service, aggregated at the gateway |
+| **Health** | `/health/live` and `/health/ready` on every service |
+
+---
+
+## 7. Repository Layout (monorepo, pnpm workspaces)
+
+```
+payflow/
+  apps/
+    api-gateway/
+    auth-service/
+    wallet-ledger-service/
+    payment-orchestrator/
+    bank-gateway-mock/
+    merchant-service/
+    notification-service/
+    webhook-service/
+    fraud-service/
+    reconciliation-service/
+  packages/
+    contracts/        event schemas, DTOs (Zod)
+    common/           logger, errors, HMAC, idempotency helpers, outbox/inbox
+    tsconfig/ eslint-config/
+  infra/
+    docker-compose.yml   (all services + postgres per service + redis + rabbitmq)
+    prometheus/ grafana/
+  docs/  architecture.md, decisions.md, event-catalog.md
+  .github/workflows/     per-service build + test (path filters)
+```
+
+Each service follows `routes -> controller -> service -> repository`, with its own migrations and Dockerfile.
+
+---
+
+## 8. Failure Scenarios to Design and Test
+
+| Scenario | Expected behavior |
+|---|---|
+| Wallet service down during top-up callback | Orchestrator retries with the same idempotency key, and the state stays `PENDING` |
+| Duplicate bank callback | Ignored via unique provider event ID |
+| Event bus down when transfer commits | Outbox holds events, relay publishes after recovery |
+| Notification service crashes mid-event | Message redelivered, inbox dedupes |
+| Merchant webhook endpoint returns 500 | Retries with backoff, then dead-letter and replay |
+| Orchestrator crashes mid-saga | Resumes from persisted saga state |
+| Two transfers A->B and B->A concurrently | Lock ordering prevents deadlock |
+| Fraud service slow or down | Money flow is unaffected (async, non-blocking) |
+
+Write a test or a chaos script (`docker stop wallet-ledger`) for each row. This is what impresses interviewers.
+
+---
+
+## 9. Roadmap (5 weeks, since microservices add overhead)
+
+### Week 1: Platform and Auth
+- Monorepo, shared packages, Docker Compose with RabbitMQ, Redis and a Postgres per service
+- `common` package: logger, error format, correlation ID middleware, outbox/inbox helpers
+- Auth service with JWT (asymmetric keys), PIN, refresh rotation
+- API Gateway with JWT verification and rate limiting
+- **Milestone:** login through the gateway works
+
+### Week 2: Wallet & Ledger Service
+- Wallets, double-entry ledger, atomic transfer with locking
+- Idempotency, internal debit/credit/reverse APIs
+- Outbox relay publishing to the bus
+- `user.registered` consumed to auto-create wallets
+- Concurrency tests (100 parallel debits, same-key retries, A<->B deadlock test)
+- **Milestone:** P2P transfers safe under load
+
+### Week 3: Payments and Bank Gateway
+- Bank Gateway mock with signed and duplicated callbacks
+- Payment Orchestrator: top-up saga, state machine, saga persistence
+- Inbox tables, retry and compensation logic
+- **Milestone:** top-up works end to end, including failure cases
+
+### Week 4: Merchants, Webhooks, Notifications, Fraud
+- Merchant service, payment requests, refunds
+- Webhook Delivery service with backoff and DLQ
+- Notification service (mock channels)
+- Fraud service with 2-3 velocity rules and a freeze action
+- **Milestone:** merchant payment and refund with webhooks
+
+### Week 5: Reconciliation, Observability, Ship
+- Reconciliation service, nightly job, mismatch reports
+- Prometheus and Grafana dashboards, tracing with OpenTelemetry
+- Chaos tests from section 8, k6 load test, record numbers
+- CI per service, deploy (Docker Compose on one VPS, or Railway/Render per service)
+- Docs: architecture diagram, event catalog, `decisions.md`, demo video
+- **Milestone:** deployed, observable, documented
+
+### Scope control
+If time is short, merge **Notification + Webhook** into one service and **Fraud + Reconciliation** into one "Risk & Reporting" service. That gives **6 services**, which is still a valid microservices story and far more achievable.
+
+Suggested minimum viable set (6): **Gateway, Auth, Wallet & Ledger, Payment Orchestrator (with mock bank module), Merchant, Notification/Webhook.**
+
+---
+
+## 10. Honest Trade-offs (say these in interviews)
+
+- Microservices add network failures, distributed debugging, eventual consistency and deployment overhead. For a small team, a modular monolith is often the better choice.
+- This project uses microservices to **demonstrate** service boundaries, sagas, outbox/inbox and observability.
+- The one boundary I refused to split (wallet + ledger) is where consistency matters most.
+- If asked "would you start with microservices in a real startup?", the strong answer is: *start with a modular monolith, split when team size or scaling needs justify it, and keep module boundaries clean so splitting is cheap.*
+
+---
+
+## 11. Interview Cheat Sheet
+
+1. Why wallet and ledger stay in one service (ACID vs saga)
+2. Orchestration vs choreography, and why orchestration for money
+3. Outbox and inbox: how they give effectively-once processing
+4. Idempotency keys across service boundaries
+5. What happens when the bank succeeds but the wallet credit fails
+6. Database-per-service and how you handle reporting across services (events and read models)
+7. How you trace one request across 5 services (correlation ID, OpenTelemetry)
+8. When you would NOT use microservices
+
+---
+
+## 12. Definition of Done
+
+- [ ] 6-10 services running via one `docker compose up`
+- [ ] Each service has its own DB, Dockerfile, health checks and tests
+- [ ] Event contracts in a shared package with versioning
+- [ ] Outbox/inbox implemented and tested
+- [ ] Saga survives an orchestrator crash
+- [ ] Chaos tests for every row in section 8
+- [ ] Reconciliation shows zero drift after load test
+- [ ] Grafana dashboard and a traced request screenshot in the README
+- [ ] Architecture diagram, event catalog and decision log
+- [ ] Simulation disclaimer in the README
