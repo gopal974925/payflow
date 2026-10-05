@@ -1,14 +1,14 @@
 import { sql } from "../config/db.js";
+import { generateToken } from "../config/generateToken.js";
 import { sendMail } from "../config/mail.js";
-import { getVerifyEmailHtml } from "../config/template.js";
-import { registerSchema } from "../config/zod.js";
+import { getOtpHtml, getVerifyEmailHtml } from "../config/template.js";
+import { loginSchema, registerSchema } from "../config/zod.js";
 import { redisClient } from "../index.js";
 import TryCatch from "../middleware/TryCatch.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 export const registerUser=TryCatch(async(req,res)=>{
     const validation=registerSchema.safeParse(req.body);
-
     const zodError =validation.error;
     let firstErrormessage="validation Error";
     let allErrors:{field: string; message: string; code: string}[]=[];
@@ -112,5 +112,136 @@ export const verifyUser=TryCatch(async(req,res)=>{
         message:"Email verification is succesfully! You account has been created",
         user:{id:newUser.user_id,name:newUser.name,email:newUser.email},
     })
+
+})
+
+
+export const loginuser=TryCatch(async(req,res)=>{
+    const validation=loginSchema.safeParse(req.body);
+    const zodError =validation.error;
+    let firstErrormessage="validation Error";
+    let allErrors:{field: string; message: string; code: string}[]=[];
+
+    if(zodError?.issues && Array.isArray(zodError.issues)){
+        allErrors=zodError.issues.map((issue)=>({
+            field:issue.path?issue.path.join("."):"unknown",
+            message:issue.message || "validation Error",
+            code:issue.code,
+        }));
+
+        firstErrormessage=allErrors[0]?.message ||"validation Error";
+    }
+    if(!validation.success){
+        return res.status(400).json(
+            {
+                message:firstErrormessage,
+                errors:allErrors,
+            }
+        )
+    }
+    const { email, password } = validation.data;
+
+    const rateLimitKey=`login-rate-limit:${req.ip}:${email}`;
+
+     if(await redisClient.get(rateLimitKey)){
+        return res.status(429).json({
+            message:"Too many request , try again later",
+        })
+    }
+
+  const [user] = await sql`
+  SELECT email, password
+  FROM users
+  WHERE email = ${email}
+`;
+
+
+    if(!user){
+        return res.status(400).json({
+            message:"Invaild Credintial",
+        })
+    }
+
+    const comparePassword=await bcrypt.compare(password,user.password);
+
+
+    if(!comparePassword){
+        return res.status(400).json({
+            message:"Invaild Credintial",
+        })
+    }
+
+
+    const otp=Math.floor(100000+Math.random()*900000).toString();
+
+    const otpkey=`otp:${email}`;
+
+    await redisClient.set(otpkey,JSON.stringify(otp),{EX:300});
+
+    const subject="Otp for verification";
+
+    const html=getOtpHtml({email,otp});
+    await sendMail({email,subject,html});
+
+    await redisClient.set(rateLimitKey,"true",{EX:60});
+
+
+    res.json({
+        message:"if your email is vaild , an otp has bben sent . It willl be vaild for 5 min",
+    })
+})
+
+
+export const verifyotp=TryCatch(async(req,res)=>{
+    const {email,otp}=req.body;
+
+    if(!email || !otp){
+        return res.status(400).json({
+            message:"Please provide all details",
+        })
+    }
+
+    const otpkey =`otp:${email}`;
+
+    const storedotpkey=await redisClient.get(otpkey);
+
+    if(!storedotpkey){
+        return res.status(400).json({
+            message:"Otp is expired",
+        })
+    }
+
+    const soterdotp=JSON.parse(storedotpkey);
+
+    if(soterdotp !== otp){
+        return res.status(400).json({
+            message:"invail otp",
+        })
+    }
+
+    await redisClient.del(otpkey);
+
+    const [user]=await sql` SELECT email,user_id,name from users 
+    WHERE email=${email}`;
+
+    if(!user){
+        return res.status(400).json({
+            message:"Somthing wen wrong",
+        })
+    }
+
+    const tokendata=await generateToken(user.id,res);
+    if(!tokendata){
+        return res.status(400).json({
+            message:"Somthing went wrong",
+        })
+    }
+
+    res.status(200).json({
+        message:`Welcome ${user.name}`,
+        user,
+
+    })
+
 
 })
