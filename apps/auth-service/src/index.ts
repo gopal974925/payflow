@@ -1,8 +1,9 @@
 import express from "express";
 import dotenv from "dotenv";
-import {sql} from "./config/db.js"
+import cookieParser from "cookie-parser";
+import { sql } from "./config/db.js";
 import authroutes from "./routes/authRoutes.js";
-import {createClient} from "redis";
+import { createClient } from "redis";
 
 dotenv.config();
 const redisUrl=process.env.REDIS_URL;
@@ -21,9 +22,10 @@ redisClient.connect()
 .then(()=>console.log("Connected to redis"))
 .catch(console.error)
 const app = express();
-app.use(express.json())
-const PORT =process.env.PORT;
-const APPNAME=process.env.APPNAME;
+app.use(express.json());
+app.use(cookieParser());
+const PORT = process.env.PORT;
+const APPNAME = process.env.APPNAME;
 
 async function initDb() {
     try {

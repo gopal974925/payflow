@@ -230,7 +230,7 @@ export const verifyotp=TryCatch(async(req,res)=>{
         })
     }
 
-    const tokendata=await generateToken(user.id,res);
+    const tokendata=await generateToken(user.user_id,res);
     if(!tokendata){
         return res.status(400).json({
             message:"Somthing went wrong",
@@ -244,4 +244,10 @@ export const verifyotp=TryCatch(async(req,res)=>{
     })
 
 
+})
+
+export const myprofile=TryCatch(async(req,res)=>{
+    const user = req.user;
+
+    res.json(user);
 })
