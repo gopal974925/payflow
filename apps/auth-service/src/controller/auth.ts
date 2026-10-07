@@ -1,9 +1,10 @@
 import { sql } from "../config/db.js";
-import { generateToken } from "../config/generateToken.js";
+import { generateAcccesstoken, generateToken, revokerefreshToken, verifyrefreshToken } from "../config/generateToken.js";
 import { sendMail } from "../config/mail.js";
 import { getOtpHtml, getVerifyEmailHtml } from "../config/template.js";
 import { loginSchema, registerSchema } from "../config/zod.js";
 import { redisClient } from "../index.js";
+import tryCatch from "../middleware/TryCatch.js";
 import TryCatch from "../middleware/TryCatch.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
@@ -251,3 +252,41 @@ export const myprofile=TryCatch(async(req,res)=>{
 
     res.json(user);
 })
+
+ export const refreshToken=TryCatch(async(req,res)=>{
+    const refreshToken=req.cookies.refreshToken;
+
+    if(!refreshToken){
+        return res.status(401).json({
+            message:"invalid refresh token 123",
+        })
+    }
+    const decode=await verifyrefreshToken(refreshToken);
+    if(!decode){
+        return res.status(401).json({
+            message:"invaild refesh token",
+        })
+    }
+
+    generateAcccesstoken(decode.id,res);
+
+    res.status(200).json({
+        message:"token refreshed ",
+    })
+})
+
+export const logoutUser=tryCatch(async(req,res)=>{
+    const user_id=req.user?.user_id;
+
+    await revokerefreshToken(user_id);
+
+    res.clearCookie("refreshToken");
+    res.clearCookie("accessToken");
+
+    await redisClient.del(`user:${user_id}`);
+
+    res.json({
+        messahe:"logged out Succesfullly",
+    })
+})
+
